@@ -1,12 +1,12 @@
-hash: 47f0e934eaf8982d5488d166a7ca4e9b332c04352d772b3044bbd326357c13bf
-updated: 2016-08-03T20:29:00.168379572+01:00
+hash: e240f3a28676a04fb8c37ffae0316f8425756553d4e93815fe2d2838512adf2a
+updated: 2016-08-16T13:38:25.328273592+03:00
 imports:
 - name: github.com/amalgam8/controller
-  version: 61679f9d97de1c9a0f72094ae7edf2244aae77c7
+  version: 6f2fbfe1ff4e2a65fa7d6566246ce1347ae2118b
   subpackages:
   - resources
 - name: github.com/amalgam8/registry
-  version: bebdfef8f255e4334f4bee38ae4f655754966439
+  version: c05befcf46763f9b896e13014db2c945fe593b10
   subpackages:
   - client
   - api/protocol/amalgam8
@@ -31,6 +31,8 @@ imports:
   version: bca61c476e3c752594983e4c9bcd5f62fb09f157
 - name: github.com/dgrijalva/jwt-go
   version: e5cb38552fb8426fe9f0f2b3bc8408f238b97b87
+- name: github.com/miekg/dns
+  version: db96a2b759cdef4f11a34506a42eb8d1290c598e
 - name: github.com/nicksnyder/go-i18n
   version: 37e5c2de3e03e4b82693e3fcb4a6aa2cc4eb07e3
   subpackages:
