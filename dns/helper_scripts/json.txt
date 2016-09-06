@@ -1,0 +1,9 @@
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: http://172.17.0.02:8080/api/v1/instances/ed53a98127dd7108
+REQUEST_ID: rlBiOXXfMi_1473171206713480317_5
+Vary: Accept-Encoding
+Date: Tue, 06 Sep 2016 14:13:26 GMT
+Content-Length: 193
+
+{"id":"ed53a98127dd7108","ttl":60,"links":{"self":"http://172.17.0.02:8080/api/v1/instances/ed53a98127dd7108","heartbeat":"http://172.17.0.02:8080/api/v1/instances/ed53a98127dd7108/heartbeat"}}
