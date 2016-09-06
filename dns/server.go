@@ -21,12 +21,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/amalgam8/registry/client"
 	"github.com/miekg/dns"
+	"strings"
 )
 
 type Server struct {
 	config    Config
-	discovery client.Discovery
-
 	dnsServer *dns.Server
 }
 
@@ -87,6 +86,7 @@ func (s *Server) Shutdown() error {
 func (s *Server) handleRequest(w dns.ResponseWriter, request *dns.Msg) {
 	response := new(dns.Msg)
 	response.SetReply(request)
+	response.Extra = request.Extra
 	response.Authoritative = true
 	response.RecursionAvailable = false
 
@@ -94,10 +94,10 @@ func (s *Server) handleRequest(w dns.ResponseWriter, request *dns.Msg) {
 		err := s.handleQuestion(question, request, response)
 		if err != nil {
 			logrus.WithError(err).Errorf("Error handling DNS question %d: %s", i, question.String())
+			// TODO: what should the dns response return ?
 			break
 		}
 	}
-
 	err := w.WriteMsg(response)
 	if err != nil {
 		logrus.WithError(err).Errorf("Error writing DNS response")
@@ -121,34 +121,73 @@ func (s *Server) handleQuestion(question dns.Question, request, response *dns.Ms
 		return fmt.Errorf("unsupported DNS question type: %v", dns.Type(question.Qtype).String())
 	}
 
+	// parse query :
 	// Query format:
 	// [tag]*.<service>.<domain>.
-	parts := dns.SplitDomainName(question.Name)
-	if len(parts) <= 2 {
-		return fmt.Errorf("")
+	numberOfLabels, isValidDomain := dns.IsDomainName(question.Name)
+	if isValidDomain == false {
+		response.SetRcode(request, dns.RcodeBadName)
+		return fmt.Errorf("Invalid Domain name %s", question.Name)
 	}
 
-	// Add A record
-	record := &dns.A{
-		Hdr: dns.RR_Header{
-			Name:   question.Name,
-			Rrtype: dns.TypeA,
-			Class:  dns.ClassINET,
-			Ttl:    0,
-		},
-		A: net.ParseIP("127.0.0.66"),
+	fullDomainRequestArray := dns.SplitDomainName(question.Name)
+	if numberOfLabels == 1 {
+		response.SetRcode(request, dns.RcodeNameError )
+		return fmt.Errorf("service name wasn't included in domain %s", question.Name)
+
 	}
+	serviceName := fullDomainRequestArray[numberOfLabels - 2]
+	tags := fullDomainRequestArray[:len(fullDomainRequestArray) -2]
+	var ServiceInstances []*client.ServiceInstance
+	var err error
+	if len(tags) == 0 {
+		ServiceInstances, err = s.config.DiscoveryClient.ListServiceInstances(serviceName)
+	} else {
+		filters :=client.InstanceFilter{ServiceName:serviceName,Tags:tags}
+		ServiceInstances, err = s.config.DiscoveryClient.ListInstances(filters)
+	}
+		if err != nil {
+			// TODO: what Error should we return ?
+			response.SetRcode(request, dns.RcodeServerFailure )
+			return fmt.Errorf("Error while reading from registry: %s",err.Error() )
+		}
+		numOfMatchingRecords := 0
+		for _, serviceInstance := range ServiceInstances {
+			endPointType := serviceInstance.Endpoint.Type
+			if endPointType == "tcp" {
+				numOfMatchingRecords++
+				record := &dns.A{
+					Hdr: dns.RR_Header{
+						Name:   question.Name,
+						Rrtype: dns.TypeA,
+						Class:  dns.ClassINET,
+						Ttl:    0,
+					},
+					// TODO: what to do with the port.
+					A: net.ParseIP(strings.Split(serviceInstance.Endpoint.Value, ":")[0]),
+				}
+				response.Answer = append(response.Answer, record)
+			}
+		}
+		if numOfMatchingRecords == 0 {
+			//Non-Existent Domain
+			response.SetRcode(request, dns.RcodeNameError )
+			return fmt.Errorf("Non-Existent Domain	 %s", question.Name)
 
-	response.Answer = append(response.Answer, record)
+		}
+		response.SetRcode(request, dns.RcodeSuccess)
+		return nil
 
-	return nil
+
 }
 
 func validate(config *Config) error {
 	// TODO: Validate port
+
 	if config.DiscoveryClient == nil {
 		return fmt.Errorf("Discovery client is nil")
 	}
+
 	config.Domain = dns.Fqdn(config.Domain)
 
 	return nil
